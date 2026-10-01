@@ -1,0 +1,5 @@
+.DS_Store
+*.works.json
+works-capture-library-*.json
+*.docx
+*.pdf

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Works Capture</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23156558'/%3E%3Cpath d='M7 9l4 15 5-10 5 10 4-15' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css?v=5">
+<script src="symbols.js?v=4" defer></script>
+<script src="docx.js" defer></script>
+<script src="jszip.min.js" defer></script>
+<script src="imports.js?v=5" defer></script>
+<script src="templates.js?v=5" defer></script>
+<script src="app.js?v=5" defer></script>
+<style id="print-page-style"></style>
+</head>
+<body>
+<header class="topbar">
+  <button class="brand" id="go-library" aria-label="Manual library"><span class="brand-mark">W</span><span>Works <b>Capture</b></span></button>
+  <div class="doc-chip" id="doc-chip" hidden><b id="chip-number">WM</b><span id="chip-title"></span></div>
+  <div class="top-actions">
+    <span id="save-status" role="status">Opening…</span>
+    <button id="btn-preview" class="only-manual" hidden>👁 Preview</button>
+    <button id="btn-export" class="primary only-manual" hidden>⬇ Export</button>
+  </div>
+</header>
+
+<div class="workspace">
+  <aside class="sidebar" id="sidebar" hidden>
+    <button class="nav-item" data-page="front">📄 Front page</button>
+    <button class="nav-item" data-page="hs">⚠ Safety &amp; quality</button>
+    <div class="side-heading"><span>PROCEDURE</span></div>
+    <div id="chapter-list"></div>
+    <button id="add-chapter" class="add-wide">＋ Section</button>
+    <button class="nav-item" data-page="preview">👁 Preview</button>
+  </aside>
+
+  <main>
+    <!-- LIBRARY -->
+    <section id="library-page" hidden>
+      <div class="page-heading">
+        <div><div class="eyebrow">LIBRARY</div><h1>Your manuals</h1></div>
+        <div class="row">
+          <button id="new-manual" class="primary big">＋ New manual</button>
+          <button id="import-word">Import Word</button>
+          <button id="import-backup">Open backup</button>
+          <button id="backup-all">Back up all</button>
+          <button id="open-settings">⚙</button>
+        </div>
+      </div>
+      <input id="lib-search" type="search" placeholder="Search title or number">
+      <div id="library-list" class="library-grid"></div>
+      <p class="hint" id="storage-info"></p>
+    </section>
+
+    <!-- SETTINGS / TEMPLATES -->
+    <section id="settings-page" hidden>
+      <div class="page-heading"><div><div class="eyebrow">SETTINGS</div><h1>Numbering &amp; templates</h1></div><button id="settings-back">← Library</button></div>
+      <div class="panel">
+        <h2>Document numbering</h2>
+        <p class="hint">Format: WM / TWP / VA.<b>CODE</b>.<b>001</b>.V<b>1.0</b>. Set a code for each area.</p>
+        <div id="area-codes" class="form-grid"></div>
+        <label>Default author (initials)<input id="set-author" maxlength="40"></label>
+        <label class="check"><input type="checkbox" id="set-draft"> Mark Word export as DRAFT</label>
+      </div>
+      <div class="panel">
+        <h2>Process templates</h2>
+        <p class="hint">Three document structures. Add your own chapters, steps and pictures inside each document.</p>
+        <div id="template-list"></div>
+      </div>
+    </section>
+
+    <!-- FRONT PAGE -->
+    <section id="front-page" hidden>
+      <div class="page-heading"><div><div class="eyebrow">FRONT PAGE</div><h1>Document details</h1></div>
+        <div class="row"><span class="type-badge" id="document-type-label"></span></div></div>
+      <div class="panel">
+        <label>Manual title<input data-d="title"></label>
+        <div class="number-builder">
+          <label>Area<select data-d="area"></select></label>
+          <label>Code<input data-d="areaCode" maxlength="4" class="short" autocapitalize="characters"></label>
+          <label>No.<input data-d="seq" inputmode="numeric" maxlength="4" class="short"></label>
+          <label>Version<input data-d="revision" class="short"></label>
+          <div class="number-out"><span>Number</span><b id="number-out">WM</b><small id="number-warn"></small></div>
+        </div>
+        <div class="form-grid">
+          <label>Reason<input data-d="reason" placeholder="First Issue"></label>
+          <label>Author<input data-d="author"></label>
+          <label>Date<input data-d="date" type="date"></label>
+          <label>Line / station<input data-d="line"></label>
+        </div>
+      </div>
+      <div class="panel va-only"><h2>Page setup</h2><div class="form-grid"><label>Paper size<select data-d="paperSize"><option>A4</option><option>A3</option><option>A5</option></select></label><label>Orientation<select data-d="orientation"><option value="portrait">Portrait (vertical)</option><option value="landscape">Landscape (horizontal)</option></select></label></div><p class="hint">Each section starts on a new sheet. Add pictures and editable tables in its panels.</p></div>
+      <div class="panel twp-only"><h2>Temporary procedure controls</h2><div class="form-grid"><label>Start date<input data-d="startDate" type="date"></label><label>End date<input data-d="endDate" type="date"></label><label>Production approval — name<input data-d="productionName"></label><label>Production approval — date<input data-d="productionDate" type="date"></label><label>Quality approval — name<input data-d="qualityName"></label><label>Quality approval — date<input data-d="qualityDate" type="date"></label></div><h3>Training record</h3><p class="hint">Use matching lines for each training entry.</p><div class="form-grid three"><label>Training conducted by<textarea data-d="trainingBy"></textarea></label><label>Dates<textarea data-d="trainingDates"></textarea></label><label>Operator names<textarea data-d="operators"></textarea></label></div><div class="form-grid"><label>Instruction status<select data-d="instructionKind"><option>New</option><option>Replaces</option><option>Updates</option></select></label><label>Affected works manuals<input data-d="affectedManuals"></label></div></div>
+      <div class="panel wm-only">
+        <h2>Applies to</h2>
+        <div class="form-grid three">
+          <label>Bike type<input data-d="product" placeholder="All"></label>
+          <label>Type<input data-d="type" placeholder="All"></label>
+          <label>Version<input data-d="appVersion" placeholder="All"></label>
+          <label>Mark<input data-d="mark"></label>
+          <label>Speed<input data-d="speed" placeholder="-"></label>
+          <label>Variants<input data-d="variants" placeholder="-"></label>
+        </div>
+      </div>
+      <div class="panel non-va">
+        <h2>Scope &amp; overview</h2>
+        <label class="wm-only">Scope<textarea data-d="scope" rows="2" placeholder="This Manual describes how to…"></textarea></label>
+        <label>Overview<textarea data-d="overview" rows="4" placeholder="Why it matters. Start a line with - for a bullet."></textarea></label>
+        <label class="wm-only">Previous versions<input data-d="previousVersions" placeholder="None, first issue."></label>
+      </div>
+      <div class="panel">
+        <h2>Cover picture <small class="hint">Figure 1</small></h2>
+        <div class="slot" data-slot="cover"></div>
+      </div>
+    </section>
+
+    <!-- H&S + QUALITY -->
+    <section id="hs-page" hidden>
+      <div class="page-heading"><div><div class="eyebrow">HEALTH, SAFETY &amp; QUALITY</div><h1>Safety &amp; quality</h1></div></div>
+      <div class="panel">
+        <h2><span class="tag hz">HAZARDS</span></h2>
+        <div class="symbol-grid" data-symset="hazard"></div>
+        <h2><span class="tag md">MANDATORY</span></h2>
+        <div class="symbol-grid" data-symset="mandatory"></div>
+        <label><span class="tag ad">ADVISORY</span><textarea data-d="advisory" rows="2" placeholder="One per line"></textarea></label>
+      </div>
+      <div class="panel">
+        <label class="red-label">Safety Points<textarea data-d="safety" rows="3" placeholder="One per line"></textarea></label>
+        <label>Risk assessment<input data-d="risk" placeholder="N/A or reference"></label>
+      </div>
+      <div class="panel quality-edit">
+        <h2 class="green">Quality Points</h2>
+        <label>Main requirement<input data-d="quality" placeholder="Enter the quality requirement"></label>
+        <label>Checks — one per line<textarea data-d="qualityChecks" rows="4" placeholder="One acceptance check per line"></textarea></label>
+      </div>
+      <div class="panel">
+        <h2>Workspace example</h2>
+        <label>Note<input data-d="workspaceNote" placeholder="The following picture is a workspace example for this procedure."></label>
+        <div class="slot" data-slot="workspace"></div>
+      </div>
+    </section>
+
+    <!-- STEP CAPTURE -->
+    <section id="capture-page" hidden>
+      <div class="page-heading">
+        <div><div class="eyebrow" id="breadcrumb">PROCEDURE</div><h1 id="step-heading">Step</h1></div>
+        <div class="row">
+          <button id="move-up" aria-label="Move step up">↑</button>
+          <button id="move-down" aria-label="Move step down">↓</button>
+          <button id="add-step-after">＋ Step</button>
+          <button id="delete-step" class="danger-text">Delete</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="two-cols">
+          <label>Step title<input id="step-title" placeholder="Enter the step or panel title"></label>
+          <label>Type<select id="step-type"><option value="action">Normal</option><option value="check">Quality check</option><option value="exception">Exception</option><option value="variant">Variant</option></select></label>
+        </div>
+        <label>Instruction<textarea id="step-action" rows="4" placeholder="One action. Exact button / tool names.&#10;- start a line with - for a sub-step (a, b, c)"></textarea></label>
+        <label>Check / result<input id="step-result" placeholder="What should they see?"></label>
+        <div id="detail-toggles" class="chip-row"></div>
+        <div id="extra-fields"></div>
+      </div>
+      <div class="panel">
+        <div class="section-heading"><h2>Pictures</h2><span class="hint">Tap a picture to mark it up</span></div>
+        <div class="add-media">
+          <button id="take-photo" class="primary">📷 Camera</button>
+          <button id="upload-photo">🖼 Photos</button>
+          <button id="screen-capture">🖥 Screenshot</button>
+          <button id="paste-image">📋 Paste</button>
+          <button id="record">🎤 Voice</button>
+          <button id="media-upload">🎬 Video</button>
+        </div>
+        <p class="hint" id="record-status"></p>
+        <div id="photo-list" class="photo-list"></div>
+        <div id="media-list"></div>
+      </div>
+      <div id="table-editor" class="panel" hidden></div><details class="panel" id="step-preview-wrap"><summary>Check this step</summary><article class="paper" id="step-preview"></article></details>
+    </section>
+
+    <!-- PREVIEW -->
+    <section id="preview-page" hidden>
+      <div class="page-heading"><div><div class="eyebrow">PREVIEW</div><h1>Manual preview</h1></div><button id="print">Print / PDF</button></div>
+      <div id="review-alert" class="review-alert"></div>
+      <article class="paper" id="document-preview"></article>
+    </section>
+  </main>
+</div>
+
+<!-- PICTURE EDITOR (full screen) -->
+<div id="editor" class="editor" hidden>
+  <div class="ed-top">
+    <button id="ed-done" class="primary">✓ Done</button>
+    <button id="undo" aria-label="Undo">↶</button>
+    <button id="redo" aria-label="Redo">↷</button>
+    <button id="delete-mark" aria-label="Delete mark">🗑</button>
+    <span class="sep"></span>
+    <button id="ed-rotate" aria-label="Rotate">⟳</button>
+    <button id="ed-crop" data-tool="crop">✂ Crop</button>
+    <button id="crop-apply" hidden class="primary">Apply crop</button>
+    <span class="sep"></span>
+    <button id="ed-more">⋯</button>
+  </div>
+  <div class="ed-body">
+    <div class="ed-tools" id="tools">
+      <button data-tool="select" title="Move">✋<span>Move</span></button>
+      <button data-tool="box" title="Box">▭<span>Box</span></button>
+      <button data-tool="circle" title="Circle">◯<span>Circle</span></button>
+      <button data-tool="arrow" title="Arrow">➚<span>Arrow</span></button>
+      <button data-tool="number" title="Numbered note">①<span>Number</span></button>
+      <button data-tool="text" title="Text">T<span>Text</span></button>
+      <button data-tool="torque" title="Torque value box">Nm<span>Torque</span></button>
+      <button data-tool="pen" title="Pen">✎<span>Pen</span></button>
+      <button data-tool="highlight" title="Highlighter">▰<span>Highlight</span></button>
+      <button data-tool="stamp" title="Symbols">✔✘<span>Symbols</span></button>
+    </div>
+    <div class="ed-canvas"><canvas id="annotation-canvas" aria-label="Picture editor"></canvas></div>
+  </div>
+  <div class="ed-bottom">
+    <div class="swatches" id="swatches"></div>
+    <div class="widths" id="widths"><button data-w="3">S</button><button data-w="6">M</button><button data-w="10">L</button></div>
+    <div id="stamp-palette" class="stamp-palette" hidden></div>
+    <div id="selected-mark" class="sel-edit" hidden>
+      <label id="note-label">Note<input id="mark-note" placeholder="What should the operator notice?"></label>
+      <div class="row"><button data-scale="0.85">－</button><button data-scale="1.15">＋</button></div>
+    </div>
+    <div id="ed-extra" hidden class="ed-extra">
+      <label>Caption<input id="photo-caption" placeholder="Explain this view"></label>
+      <div id="annotation-notes"></div>
+      <div class="row"><button id="download-photo">Download picture</button><button id="reset-photo">Reset to original</button><button id="remove-photo" class="danger-text">Remove picture</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<input type="file" id="photo-input" accept="image/*" multiple hidden>
+<input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
+<input type="file" id="media-input" accept="video/*,audio/*" multiple hidden>
+<input type="file" id="word-input" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+<input type="file" id="backup-input" accept=".json,application/json" hidden>
+<input type="file" id="slot-input" accept="image/*" hidden>
+
+<dialog id="name-dialog"><form method="dialog"><h2 id="dialog-title">Section</h2><label id="dialog-label">Title<input id="chapter-name" required maxlength="160"></label><div class="row"><button value="cancel" formnovalidate>Cancel</button><button value="save" class="primary">Save</button></div></form></dialog>
+<dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Confirm</h2><p id="confirm-message"></p><div class="row"><button value="cancel">Cancel</button><button value="yes" class="primary">Continue</button></div></form></dialog>
+<dialog id="template-dialog"><form method="dialog"><h2>New manual</h2><p class="hint">Choose a document type</p><div id="template-choices" class="template-choices"></div><div class="row"><button value="cancel">Cancel</button></div></form></dialog>
+<dialog id="export-dialog"><form method="dialog"><h2>Export</h2>
+  <div class="export-list">
+    <button value="word" class="primary big">📄 Word manual (.docx)</button>
+    <button value="print" class="big">PDF — Save as PDF</button>
+  </div>
+  <p class="hint">PDF opens your print dialog. Choose “Save as PDF”. A4 is the default; VA uses your page settings. Editable backups are available in the library.</p><div class="row"><button value="cancel">Close</button></div></form></dialog>
+<dialog id="page-setup-dialog"><form method="dialog"><h2>Visual aid page</h2><label>Paper size<select id="new-paper"><option>A4</option><option>A3</option><option>A5</option></select></label><label>Orientation<select id="new-orientation"><option value="portrait">Portrait (vertical)</option><option value="landscape">Landscape (horizontal)</option></select></label><div class="row"><button value="cancel">Cancel</button><button value="create" class="primary">Create visual aid</button></div></form></dialog>
+<dialog id="word-import-dialog"><form method="dialog"><h2>Import Word document</h2><p>Convert a .docx file into editable sections, pictures and tables.</p><label>Use this format<select id="import-type"><option value="wm">Works Manual</option><option value="twp">TWP — Temporary Work Procedure</option><option value="va">VA — Visual Aid</option></select></label><p class="hint">Original page styling is replaced by the selected template. Check the imported content before use. Older .doc files must be saved as .docx in Word first.</p><div class="row"><button value="cancel">Cancel</button><button value="choose" class="primary">Choose Word file</button></div></form></dialog>
+<dialog id="import-report-dialog"><form method="dialog"><h2>Import ready for review</h2><p id="import-report"></p><p class="hint">The original Word file is unchanged. Check headings, tables, pictures, safety points and approvals before issuing this draft.</p><div class="row"><button value="ok" class="primary">Edit document</button></div></form></dialog>
+<dialog id="paste-table-dialog"><form method="dialog"><h2>Paste a table from Excel</h2><p>Copy cells in Excel, then paste below. The first row becomes the headings.</p><label>Copied cells<textarea id="paste-table-text" rows="9" placeholder="Paste copied cells here" required></textarea></label><p class="hint">Up to 8 columns and 100 data rows. Paste creates a new editable table; it does not replace another table. Formulas are imported as displayed text, not calculations.</p><div class="row"><button value="cancel" formnovalidate>Cancel</button><button value="insert" class="primary">Insert table</button></div></form></dialog>
+</body>
+</html>
