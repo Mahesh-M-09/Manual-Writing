@@ -49,4 +49,22 @@ function wordCapture(parsed,type,setup={}){
  }
  if(!p.chapters.length)ensureChapter();for(const c of p.chapters)if(!c.steps.length)c.steps.push(step('Add instruction'));d.sourceFilename=parsed.sourceName;d.importNotes=[...new Set(parsed.warnings)];d.number=buildNumber(d);return normalise(p);
 }
-function initImports(){let target='wm';$('#import-word').onclick=()=>{const dlg=$('#word-import-dialog');dlg.showModal();dlg.onclose=()=>{if(dlg.returnValue==='choose'){target=$('#import-type').value;$('#word-input').click()}}};$('#word-input').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const setup=target==='va'?await askPageSetup():{};if(!setup)return;toast('Reading Word document…',15000);const parsed=await parseWordFile(f),imported=wordCapture(parsed,target,setup);await flushSave();project=imported;baseRev=0;current=project.chapters[0].steps[0].id;dirty=true;await flushSave();await setPage('front');const steps=project.chapters.reduce((n,c)=>n+c.steps.length,0),pics=project.chapters.flatMap(c=>c.steps).reduce((n,s)=>n+s.photos.length,0);$('#import-report').textContent=`Imported ${steps} editable sections/steps and ${pics} pictures. ${[...new Set(parsed.warnings)].join(' ')}`;$('#import-report-dialog').showModal();toast('Word imported as an editable draft.')}catch(err){console.error(err);toast(err.message||'Word import failed.',10000)}}}
+function initImports(){
+ const dlg=$('#word-import-dialog'),status=$('#word-import-status');let busy=false;
+ const updateType=()=>{$('#import-va-setup').hidden=$('#import-type').value!=='va'};
+ $('#import-word').onclick=()=>{$('#word-input').value='';status.textContent='Select a Word file, then tap Import manual.';updateType();dlg.showModal()};
+ $('#import-type').onchange=updateType;
+ $('#word-input').onchange=()=>{status.textContent=$('#word-input').files[0]?`Selected: ${$('#word-input').files[0].name}`:'No file selected.'};
+ dlg.oncancel=e=>{if(busy)e.preventDefault()};
+ $('#start-word-import').onclick=async()=>{
+  const f=$('#word-input').files[0],target=$('#import-type').value;
+  if(!f){status.textContent='Choose a Word document (.docx) first.';return}if(busy)return;
+  busy=true;$('#start-word-import').disabled=true;$('#cancel-word-import').disabled=true;$('#word-input').disabled=true;$('#import-type').disabled=true;status.textContent='Importing text, tables and pictures…';
+  try{const setup=target==='va'?{paperSize:$('#import-paper').value,orientation:$('#import-orientation').value}:{};
+   const parsed=await parseWordFile(f),imported=wordCapture(parsed,target,setup);await flushSave();project=imported;baseRev=0;current=project.chapters[0].steps[0].id;dirty=true;await flushSave();dlg.close();await setPage('front');
+   const steps=project.chapters.reduce((n,c)=>n+c.steps.length,0),pics=project.chapters.flatMap(c=>c.steps).reduce((n,s)=>n+s.photos.length,0);
+   $('#import-report').textContent=`Imported ${steps} editable sections/steps and ${pics} pictures. ${[...new Set(parsed.warnings)].join(' ')}`;$('#import-report-dialog').showModal();toast('Word imported as an editable draft.');
+  }catch(err){console.error(err);status.textContent=err.message||'Word import failed. Choose a .docx file and try again.'}
+  finally{busy=false;$('#start-word-import').disabled=false;$('#cancel-word-import').disabled=false;$('#word-input').disabled=false;$('#import-type').disabled=false}
+ };
+}

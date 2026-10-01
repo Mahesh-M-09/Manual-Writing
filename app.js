@@ -1,6 +1,6 @@
 'use strict';
 /* Works Capture — milestone 1
-   Local-only (IndexedDB). No network calls, no account connections.
+   Local-only (IndexedDB). No account connections. Optional browser speech recognition may use its speech service.
    Library of manuals · reliable save/reopen · WM numbering · tablet picture editor
    Works Manual, TWP and VA · Word and PDF export. */
 
@@ -95,7 +95,7 @@ function normalise(p){
     d.date=d.date||today();
   }
   for(const k of ['title','number','area','areaCode','seq','revision','reason','author','date','line','product','type','appVersion','mark','speed','variants','scope','overview','previousVersions','advisory','safety','risk','quality','qualityChecks','workspaceNote'])d[k]=String(d[k]??'');
-  if(!AREAS.includes(d.area))d.area='Inspection / Other';
+  if(!d.area.trim())d.area='Inspection / Other';
   if(!d.number)d.number=buildNumber(d);
   d.hazards=(Array.isArray(d.hazards)?d.hazards:[]).filter(symById);d.mandatory=(Array.isArray(d.mandatory)?d.mandatory:[]).filter(symById);
   const ids=new Set(),idCheck=id=>{if(typeof id!=='string'||!id||ids.has(id))throw Error('Invalid or duplicate record ID.');ids.add(id)};
@@ -172,7 +172,7 @@ async function rebuildIndex(){const all=await idb('manuals','readonly',s=>s.getA
 function active(){for(const c of project.chapters){const s=c.steps.find(s=>s.id===current);if(s)return {c,s}}const c=project.chapters[0];current=c.steps[0].id;return {c,s:c.steps[0]}}
 function headerChip(){const on=!!project&&page!=='library'&&page!=='settings';$('#doc-chip').hidden=!on;$$('.only-manual').forEach(b=>b.hidden=!on);if(on){$('#chip-number').textContent=project.details.number||'WM';$('#chip-title').textContent=project.details.title}}
 async function setPage(p){
-  if(recording())return;page=p;
+  if(recording())return;stopDictation();page=p;
   for(const id of ['library','settings','front','hs','capture','preview'])$('#'+id+'-page').hidden=id!==p;
   const manualView=!['library','settings'].includes(p);$('#sidebar').hidden=!manualView;$('.workspace').classList.toggle('no-side',!manualView);
   headerChip();
@@ -212,8 +212,9 @@ $('#open-settings').onclick=()=>setPage('settings');$('#settings-back').onclick=
 
 /* ---------- settings ---------- */
 function settingsUI(){
-  $('#area-codes').innerHTML=AREAS.map(a=>`<label>${esc(a)}<input data-code="${esc(a)}" value="${esc(settings.areaCodes[a]||'')}" maxlength="4" placeholder="e.g. PT"></label>`).join('');
-  $$('[data-code]').forEach(i=>i.oninput=()=>{settings.areaCodes[i.dataset.code]=i.value.toUpperCase().replace(/[^A-Z0-9]/g,'');saveSettings()});
+  choiceSettingsUI();
+  $('#area-codes').innerHTML=areaNames().map(a=>`<label>${esc(a)}<input data-code="${esc(a)}" value="${esc(settings.areaCodes[a]||'')}" maxlength="8" placeholder="Your code"></label>`).join('');
+  $$('[data-code]').forEach(i=>i.oninput=()=>{settings.areaCodes[i.dataset.code]=i.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);i.value=settings.areaCodes[i.dataset.code];saveSettings().then(()=>$('#area-settings-status').textContent='Area codes saved. Existing document numbers are unchanged.').catch(()=>toast('Could not save area codes.'))});
   $('#set-author').value=settings.author||'';$('#set-author').oninput=e=>{settings.author=e.target.value;saveSettings()};
   $('#set-draft').checked=settings.draftMark!==false;$('#set-draft').onchange=e=>{settings.draftMark=e.target.checked;saveSettings()};
   $('#template-list').innerHTML=allTemplates().map(t=>`<div class="tpl-row"><div><b>${esc(t.name)}</b><br><small>${esc(t.chapters.map(c=>c.title).join(' → '))}</small></div>${BUILTIN_TEMPLATES.includes(t)?'<small>Built-in</small>':`<button data-deltpl="${esc(t.id)}" class="danger-text">Delete</button>`}</div>`).join('');
@@ -222,14 +223,16 @@ function settingsUI(){
 /* ---------- front page & H&S ---------- */
 function bindDetails(root){
   root.querySelectorAll('[data-d]').forEach(e=>{const k=e.dataset.d;
-    if(e.tagName==='SELECT'&&k==='area')e.innerHTML=AREAS.map(a=>`<option ${a===project.details.area?'selected':''}>${esc(a)}</option>`).join('');
-    else e.value=project.details[k]??'';
-    e.oninput=e.onchange=()=>{const d=project.details;d[k]=e.value;
-      if(k==='area'){const code=settings.areaCodes[e.value];if(code){d.areaCode=code;d.seq=nextSeq(code);root.querySelector('[data-d=areaCode]').value=code;root.querySelector('[data-d=seq]').value=d.seq}}
-      if(k==='areaCode'){d.areaCode=e.value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(e.value!==d.areaCode)e.value=d.areaCode;if(d.areaCode&&!d.seq){d.seq=nextSeq(d.areaCode);root.querySelector('[data-d=seq]').value=d.seq}}
+    if(e.tagName==='SELECT'&&k==='area')e.innerHTML=areaNames(project.details.area).map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('');
+    if(e.tagName==='SELECT'&&k==='areaCode')codeOptions(e,project.details.areaCode);
+    if(CHOICE_LABELS[k])fillChoice(e,k,project.details[k]);
+    e.value=project.details[k]??'';
+    e.oninput=e.onchange=async()=>{const d=project.details;if(CHOICE_LABELS[k]&&e.value==='__add_choice__'){e.value=d[k]||'';const value=await askName('Add a choice',CHOICE_LABELS[k]);if(!value)return;settings.choices[k]=uniqueChoices([...(settings.choices[k]||[]),value]);await saveSettings();fillChoice(e,k,value);e.value=value;}d[k]=e.value;
+      if(k==='area'){const code=settings.areaCodes[e.value]||'';d.areaCode=code;d.seq=code?nextSeq(code):'';codeOptions(root.querySelector('[data-d=areaCode]'),code);root.querySelector('[data-d=seq]').value=d.seq;}
+      if(k==='areaCode'){d.areaCode=e.value;const match=areaNames().find(a=>settings.areaCodes[a]===e.value);if(match&&settings.areaCodes[d.area]!==e.value){d.area=match;root.querySelector('[data-d=area]').value=match}d.seq=e.value?nextSeq(e.value):'';root.querySelector('[data-d=seq]').value=d.seq;}
       if(k==='seq'){d.seq=e.value.replace(/\D/g,'')}
       if(['area','areaCode','seq','revision'].includes(k)){d.number=buildNumber(d);numberUI()}
-      scheduleSave()}});
+      scheduleSave()};if(e.tagName==='SELECT')e.oninput=null;});
 }
 function numberUI(){if(!$('#number-out'))return;const d=project.details;$('#number-out').textContent=d.number;const dup=Object.values(index).find(e=>e.id!==project.id&&e.number===d.number);$('#number-warn').textContent=dup?`Already used by “${dup.title}”`:''}
 function frontUI(){templateFrontUI();bindDetails($('#front-page'));numberUI();slotUI('cover')}
@@ -355,7 +358,7 @@ $('#record').onclick=async()=>{
     recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
     recorder.onstop=async()=>{clearTimeout(recorder.limit);stream.getTracks().forEach(t=>t.stop());const type=(recorder.mimeType||'audio/webm').split(';')[0],blob=new Blob(chunks,{type});const ext=type.includes('mp4')?'m4a':type.includes('ogg')?'ogg':'webm';
       try{recordStep.media.push({id:uid(),name:`voice-${recordStep.media.length+1}.${ext}`,type,data:await fileData(blob),note:''});scheduleSave();await mediaUI()}catch(e){toast(e.message)}
-      $('#record').textContent='🎤 Voice';$('#record').disabled=false;$('#record-status').textContent='Recording attached.'};
+      $('#record').textContent='🎤 Audio attachment';$('#record').disabled=false;$('#record-status').textContent='Recording attached.'};
     recorder.start();$('#record').textContent='■ Stop';$('#record-status').textContent='Recording… stops after 3 minutes.';recorder.limit=setTimeout(()=>{if(recorder.state==='recording')recorder.stop()},180000);
   }catch(e){stream?.getTracks().forEach(t=>t.stop());toast(e.message||'Microphone access was not granted.')}
 };
@@ -365,15 +368,15 @@ let edOnClose=null;
 const BOXLIKE=['box','circle','text','torque','stamp'];
 function photo(){return edPhoto}
 async function openEditor(p,onClose){
-  if(!p)return;edPhoto=p;edOnClose=onClose;selected=null;cropRect=null;
+  if(!p)return;document.activeElement?.blur();edZoom=1;$('#ed-extra').hidden=true;edPhoto=p;edOnClose=onClose;selected=null;cropRect=null;
   $('#editor').hidden=false;document.body.classList.add('editor-open');
   imageCache=await loadImage(p.src);canvas.width=p.width;canvas.height=p.height;
-  $('#photo-caption').value=p.caption;setTool('select');swatchUI();afterMark(false);fitCanvas();
+  $('#photo-caption').value=p.caption;setTool('select');swatchUI();afterMark(false);editorZoom(1);
 }
 function closeEditor(){if(!edPhoto)return;$('#editor').hidden=true;document.body.classList.remove('editor-open');edPhoto=null;gesture=null;cropRect=null;scheduleSave();edOnClose?.();nav()}
 $('#ed-done').onclick=closeEditor;
 $('#ed-more').onclick=()=>{$('#ed-extra').hidden=!$('#ed-extra').hidden};
-function fitCanvas(){const box=$('.ed-canvas').getBoundingClientRect(),r=Math.min((box.width-20)/canvas.width,(box.height-20)/canvas.height);canvas.style.width=Math.floor(canvas.width*r)+'px';canvas.style.height=Math.floor(canvas.height*r)+'px';draw()}
+function fitCanvas(){const box=$('.ed-canvas').getBoundingClientRect(),r=Math.max(.01,Math.min((box.width-20)/canvas.width,(box.height-20)/canvas.height))*edZoom;canvas.style.width=Math.floor(canvas.width*r)+'px';canvas.style.height=Math.floor(canvas.height*r)+'px';draw()}
 window.addEventListener('resize',()=>{if(edPhoto)fitCanvas()});
 if(window.ResizeObserver)new ResizeObserver(()=>{if(edPhoto&&!gesture)fitCanvas()}).observe($('.ed-canvas'));
 function swatchUI(){
@@ -426,18 +429,19 @@ function defaultBox(type,pt){const W=canvas.width,H=canvas.height;
   const s=.12,hN=s*W/H;return {x:pt.x-s/2,y:pt.y-hN/2,x2:pt.x+s/2,y2:pt.y+hN/2}}
 function clampBox(m){const b=norm(m);let dx=0,dy=0;if(b.x<0)dx=-b.x;if(b.x+b.w>1)dx=1-b.x-b.w;if(b.y<0)dy=-b.y;if(b.y+b.h>1)dy=1-b.y-b.h;m.x+=dx;m.x2+=dx;m.y+=dy;m.y2+=dy}
 canvas.onpointerdown=e=>{
-  if(e.button>0||gesture||!edPhoto)return;e.preventDefault();const p=edPhoto,pt=coords(e),before=snapshot();canvas.setPointerCapture(e.pointerId);
+  if(e.button>0||e.isPrimary===false||gesture||!edPhoto)return;e.preventDefault();const p=edPhoto,pt=coords(e),before=snapshot();canvas.setPointerCapture(e.pointerId);
+  if(tool==='pan'){const box=$('.ed-canvas');gesture={mode:'pan',pointer:e.pointerId,startX:e.clientX,startY:e.clientY,left:box.scrollLeft,top:box.scrollTop};return}
   if(tool==='crop'){cropRect={x:pt.x,y:pt.y,x2:pt.x,y2:pt.y};gesture={mode:'crop',pointer:e.pointerId};draw();return}
   if(tool==='select'){const cur=selMark(),hd=handleHit(cur,pt),m=hd?cur:hit(pt);selected=m?.id||null;if(m)gesture={id:m.id,pointer:e.pointerId,start:pt,original:structuredClone(m),mode:hd?'resize':'move',handle:hd?.k,before};draw();selectionUI();undoUI();return}
   const m={id:uid(),type:tool,color:edColor,width:edWidth,x:pt.x,y:pt.y,x2:pt.x,y2:pt.y,note:''};
   if(tool==='pen'||tool==='highlight')m.points=[pt];
   if(tool==='number')m.number=Math.max(0,...p.marks.filter(x=>x.type==='number').map(x=>+x.number))+1;
-  if(tool==='text')m.text='Text';if(tool==='torque'){m.text=(active&&project&&current?(active().s.settings||'').match(/[\d.]+\s*N\s?m/i)?.[0]:'')||'8Nm';m.color='#000000'}
+  if(tool==='text')m.text='Text';if(tool==='torque'){m.text=(active&&project&&current?(active().s.settings||'').match(/[\d.]+\s*N\s?m/i)?.[0]:'')||'VALUE Nm';m.color='#000000'}
   if(tool==='stamp'){m.sym=stampId;Object.assign(m,defaultBox('stamp',pt));clampBox(m)}
   p.marks.push(m);selected=m.id;gesture={id:m.id,pointer:e.pointerId,start:pt,mode:'draw',before};draw();selectionUI();
 };
 canvas.onpointermove=e=>{
-  if(!gesture||gesture.pointer!==e.pointerId)return;const pt=coords(e);
+  if(!gesture||gesture.pointer!==e.pointerId)return;if(gesture.mode==='pan'){const box=$('.ed-canvas');box.scrollLeft=gesture.left+gesture.startX-e.clientX;box.scrollTop=gesture.top+gesture.startY-e.clientY;return}const pt=coords(e);
   if(gesture.mode==='crop'){cropRect.x2=pt.x;cropRect.y2=pt.y;draw();return}
   const m=edPhoto.marks.find(m=>m.id===gesture.id);if(!m)return;
   if(gesture.mode==='move')translate(m,gesture.original,pt.x-gesture.start.x,pt.y-gesture.start.y);
@@ -446,18 +450,18 @@ canvas.onpointermove=e=>{
   draw();
 };
 function finishGesture(e){
-  if(!gesture||(e&&e.pointerId!==gesture.pointer))return;const g=gesture;gesture=null;
+  if(!gesture||(e&&e.pointerId!==gesture.pointer))return;const g=gesture;gesture=null;if(g.mode==='pan')return;
   if(g.mode==='crop'){const b=norm(cropRect);if(b.w<.03||b.h<.03)cropRect=null;$('#crop-apply').hidden=!cropRect;draw();return}
   const p=edPhoto,m=p.marks.find(m=>m.id===g.id);
   if(g.mode==='draw'&&m){const b=bounds(m);if(['box','circle','text','torque'].includes(m.type)&&b.w+b.h<.02){Object.assign(m,defaultBox(m.type,g.start));clampBox(m)}
     else if(['arrow','pen','highlight'].includes(m.type)&&b.w+b.h<.006){p.marks=p.marks.filter(x=>x!==m);selected=null}}
   commitChange(g.before,g.mode);if(g.mode==='draw'&&!['pen','highlight','stamp'].includes(tool))setTool('select');afterMark();
-  if(m&&g.mode==='draw'&&['number','text','torque'].includes(m.type)){$('#mark-note').focus();$('#mark-note').select()}
+  if(m&&g.mode==='draw'&&['number','text','torque'].includes(m.type))toast('Tap Edit note / text when you want to type.',2200)
 }
 canvas.onpointerup=finishGesture;canvas.onpointercancel=()=>{if(!gesture)return;if(gesture.before){edPhoto.marks=gesture.before.marks;selected=gesture.before.selected}gesture=null;cropRect=null;afterMark(false)};
-function setTool(v){tool=v;$$('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===tool));canvas.style.cursor=tool==='select'?'grab':'crosshair';$('#stamp-palette').hidden=tool!=='stamp';if(tool!=='crop'){cropRect=null;$('#crop-apply').hidden=true}if(tool!=='select'){selected=null;selectionUI()}draw()}
+function setTool(v){tool=v;$$('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===tool));canvas.style.cursor=['select','pan'].includes(tool)?'grab':'crosshair';$('#stamp-palette').hidden=tool!=='stamp';if(tool!=='crop'){cropRect=null;$('#crop-apply').hidden=true}if(tool!=='select'){selected=null;selectionUI()}draw()}
 $$('[data-tool]').forEach(b=>b.onclick=()=>setTool(tool===b.dataset.tool&&b.dataset.tool==='crop'?'select':b.dataset.tool));
-function selectionUI(){const m=selMark();$('#selected-mark').hidden=!m;if(m){const isText=['text','torque'].includes(m.type);$('#mark-note').value=isText?(m.text||''):(m.note||'');$('#note-label').firstChild.textContent=isText?(m.type==='torque'?'Torque value':'Text'):m.type==='number'?`Note ${m.number}`:'Note (optional)';$('#mark-note').placeholder=isText?'e.g. 8Nm':'What should the operator notice?';}undoUI()}
+function selectionUI(){const m=selMark();$('#selected-mark').hidden=!m;if(m){const isText=['text','torque'].includes(m.type);$('#mark-note').value=isText?(m.text||''):(m.note||'');$('#note-label').firstChild.textContent=isText?(m.type==='torque'?'Torque value':'Text'):m.type==='number'?`Note ${m.number}`:'Note (optional)';$('#mark-note').placeholder=isText?'e.g. 8Nm':'What should the operator notice?';}markNoteSummary();undoUI()}
 function notesUI(){const p=edPhoto;$('#annotation-notes').innerHTML=p?p.marks.filter(m=>m.type==='number'||m.note).map(m=>`<div class="note-item"><b>${m.type==='number'?m.number:'•'}</b><span>${esc(m.note||'Add a note for this marker.')}</span></div>`).join(''):''}
 let noteBefore=null;
 $('#mark-note').onfocus=()=>{noteBefore=edPhoto?snapshot():null};
@@ -626,12 +630,8 @@ async function exportWord(){try{toast('Preparing Word…',2000);await flushSave(
 $('#btn-export').onclick=()=>{$('#export-dialog').showModal();$('#export-dialog').onclose=()=>{const v=$('#export-dialog').returnValue;if(v==='word')exportWord();if(v==='print')$('#print').click()}};
 
 /* ---------- backups ---------- */
-$('#import-backup').onclick=()=>$('#backup-input').click();
-$('#backup-all').onclick=async()=>{const all=await idb('manuals','readonly',s=>s.getAll());download(new Blob([JSON.stringify({format:'works-capture-library',version:2,exported:new Date().toISOString(),manuals:all})],{type:'application/json'}),`works-capture-library-${today()}.json`);toast(`${all.length} manual(s) backed up.`)};
-$('#backup-input').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
-  try{if(f.size>400*1024*1024)throw Error('Backup is too large (400 MB limit).');const raw=JSON.parse(await f.text());const list=raw.format==='works-capture-library'?raw.manuals:[raw];let n=0;
-    for(const item of list){const m=normalise(item);if(await getManual(m.id)){if(!await confirmAction('Manual already in library',`“${m.details.title}” is already here. Replace it with the backup? Choose Cancel to add it as a copy.`,'Replace'))m.id=uid()}m.saveRev=Math.max(m.saveRev,((await getManual(m.id))?.saveRev||0)+1);await putManual(m);index[m.id]=await summary(m);n++}
-    await saveIndex();libraryUI();toast(`${n} manual(s) opened into the library.`)}catch(err){toast(err.message||'Could not open backup.')}};
+$('#import-backup').onclick=()=>{$('#backup-input').value='';$('#backup-import-status').textContent='';$('#backup-dialog').showModal()};
+$('#backup-all').onclick=async()=>{const all=await idb('manuals','readonly',s=>s.getAll());download(new Blob([JSON.stringify({format:'works-capture-library',version:2,exported:new Date().toISOString(),configuration:exportChoices(),manuals:all})],{type:'application/json'}),`works-capture-library-${today()}.json`);toast(`${all.length} manual(s) and choices backed up.`)};
 
 /* ---------- optional page tools (read-only) ---------- */
 function registerTools(){const ctx=document.modelContext;if(!ctx?.registerTool)return;try{Promise.resolve(ctx.registerTool({name:'read_manual_outline',title:'Read manual outline',description:'Read the open manual outline and fields needing confirmation. Local only; does not export or send files.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},execute(input){if(!input||typeof input!=='object'||Object.keys(input).length)throw Error('Expected an empty object');if(!project)return {library:Object.values(index).map(e=>({title:e.title,number:e.number}))};return {number:project.details.number,title:project.details.title,chapters:project.chapters.map(c=>({title:c.title,steps:c.steps.map(s=>({title:s.title,photos:s.photos.length}))})),missing:missing()}}})).catch(()=>{})}catch{}}
@@ -639,12 +639,12 @@ function registerTools(){const ctx=document.modelContext;if(!ctx?.registerTool)r
 /* ---------- start ---------- */
 (async()=>{
   preloadSymbols();
-  try{db=await openDB();settings=Object.assign(settings,await getSetting('settings')||{});settings.areaCodes={...DEFAULT_CODES,...(settings.areaCodes||{})};index=await getSetting('index')||{};
+  try{db=await openDB();settings=Object.assign(settings,await getSetting('settings')||{});settings.areaCodes={...DEFAULT_CODES,...(settings.areaCodes||{})};normaliseChoices();index=await getSetting('index')||{};
     await migrateLegacy();if(!Object.keys(index).length)await rebuildIndex();
     if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
     setStatus('Saved on this device');
   }catch(e){console.error(e);setStatus('Storage unavailable — use backups',true);toast('Browser storage is unavailable (private mode?). Export backups to keep work.',9000)}
   const last=settings.lastOpen&&index[settings.lastOpen];
   if(last&&new URLSearchParams(location.search).get('library')===null)await openManual(settings.lastOpen);else await setPage('library');
-  initImports();registerTools();
+  initImports();initEnhancements();registerTools();
 })();

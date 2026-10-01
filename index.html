@@ -9,13 +9,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Works Capture</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23156558'/%3E%3Cpath d='M7 9l4 15 5-10 5 10 4-15' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 <script src="symbols.js?v=4" defer></script>
 <script src="docx.js" defer></script>
 <script src="jszip.min.js" defer></script>
-<script src="imports.js?v=5" defer></script>
-<script src="templates.js?v=5" defer></script>
-<script src="app.js?v=5" defer></script>
+<script src="imports.js?v=6" defer></script>
+<script src="templates.js?v=6" defer></script>
+<script src="enhancements.js?v=6" defer></script>
+<script src="app.js?v=6" defer></script>
 <style id="print-page-style"></style>
 </head>
 <body>
@@ -47,9 +48,9 @@
         <div class="row">
           <button id="new-manual" class="primary big">＋ New manual</button>
           <button id="import-word">Import Word</button>
-          <button id="import-backup">Open backup</button>
+          <button id="import-backup">Open saved draft</button>
           <button id="backup-all">Back up all</button>
-          <button id="open-settings">⚙</button>
+          <button id="open-settings">⚙ Settings &amp; choices</button>
         </div>
       </div>
       <input id="lib-search" type="search" placeholder="Search title or number">
@@ -59,14 +60,15 @@
 
     <!-- SETTINGS / TEMPLATES -->
     <section id="settings-page" hidden>
-      <div class="page-heading"><div><div class="eyebrow">SETTINGS</div><h1>Numbering &amp; templates</h1></div><button id="settings-back">← Library</button></div>
+      <div class="page-heading"><div><div class="eyebrow">SETTINGS</div><h1>Areas, choices &amp; numbering</h1></div><button id="settings-back">← Library</button></div>
       <div class="panel">
         <h2>Document numbering</h2>
         <p class="hint">Format: WM / TWP / VA.<b>CODE</b>.<b>001</b>.V<b>1.0</b>. Set a code for each area.</p>
-        <div id="area-codes" class="form-grid"></div>
+        <div id="area-codes" class="form-grid"></div><div class="form-grid"><label>New area name<input id="new-area-name" maxlength="80" placeholder="Your manufacturing area"></label><label>New area code<input id="new-area-code" maxlength="8" placeholder="Your code" autocapitalize="characters"></label></div><button id="add-area">Add area</button><p id="area-settings-status" class="hint" role="status"></p>
         <label>Default author (initials)<input id="set-author" maxlength="40"></label>
         <label class="check"><input type="checkbox" id="set-draft"> Mark Word export as DRAFT</label>
       </div>
+      <div class="panel"><h2>Dropdown choices</h2><p class="hint">One choice per line. You can also choose “Add a choice…” in a document. Existing document values stay unchanged.</p><div id="choice-settings" class="form-grid"></div><button id="save-choices" class="primary">Save choices</button><p id="choice-settings-status" role="status"></p></div>
       <div class="panel">
         <h2>Process templates</h2>
         <p class="hint">Three document structures. Add your own chapters, steps and pictures inside each document.</p>
@@ -82,16 +84,16 @@
         <label>Manual title<input data-d="title"></label>
         <div class="number-builder">
           <label>Area<select data-d="area"></select></label>
-          <label>Code<input data-d="areaCode" maxlength="4" class="short" autocapitalize="characters"></label>
+          <label>Code<select data-d="areaCode" aria-label="Area code"></select></label>
           <label>No.<input data-d="seq" inputmode="numeric" maxlength="4" class="short"></label>
           <label>Version<input data-d="revision" class="short"></label>
           <div class="number-out"><span>Number</span><b id="number-out">WM</b><small id="number-warn"></small></div>
         </div>
         <div class="form-grid">
-          <label>Reason<input data-d="reason" placeholder="First Issue"></label>
+          <label>Reason<select data-d="reason"></select></label>
           <label>Author<input data-d="author"></label>
           <label>Date<input data-d="date" type="date"></label>
-          <label>Line / station<input data-d="line"></label>
+          <label>Line / station<select data-d="line"></select></label>
         </div>
       </div>
       <div class="panel va-only"><h2>Page setup</h2><div class="form-grid"><label>Paper size<select data-d="paperSize"><option>A4</option><option>A3</option><option>A5</option></select></label><label>Orientation<select data-d="orientation"><option value="portrait">Portrait (vertical)</option><option value="landscape">Landscape (horizontal)</option></select></label></div><p class="hint">Each section starts on a new sheet. Add pictures and editable tables in its panels.</p></div>
@@ -99,12 +101,12 @@
       <div class="panel wm-only">
         <h2>Applies to</h2>
         <div class="form-grid three">
-          <label>Bike type<input data-d="product" placeholder="All"></label>
-          <label>Type<input data-d="type" placeholder="All"></label>
-          <label>Version<input data-d="appVersion" placeholder="All"></label>
-          <label>Mark<input data-d="mark"></label>
-          <label>Speed<input data-d="speed" placeholder="-"></label>
-          <label>Variants<input data-d="variants" placeholder="-"></label>
+          <label>Bike type<select data-d="product"></select></label>
+          <label>Type<select data-d="type"></select></label>
+          <label>Version<select data-d="appVersion"></select></label>
+          <label>Mark<select data-d="mark"></select></label>
+          <label>Speed<select data-d="speed"></select></label>
+          <label>Variants<select data-d="variants"></select></label>
         </div>
       </div>
       <div class="panel non-va">
@@ -161,6 +163,7 @@
           <label>Step title<input id="step-title" placeholder="Enter the step or panel title"></label>
           <label>Type<select id="step-type"><option value="action">Normal</option><option value="check">Quality check</option><option value="exception">Exception</option><option value="variant">Variant</option></select></label>
         </div>
+        <div class="dictation-entry"><button id="dictate-step" type="button">🎙 Voice to text</button><span class="hint">Speak your instruction, review it, then add it to the step.</span></div>
         <label>Instruction<textarea id="step-action" rows="4" placeholder="One action. Exact button / tool names.&#10;- start a line with - for a sub-step (a, b, c)"></textarea></label>
         <label>Check / result<input id="step-result" placeholder="What should they see?"></label>
         <div id="detail-toggles" class="chip-row"></div>
@@ -173,7 +176,7 @@
           <button id="upload-photo">🖼 Photos</button>
           <button id="screen-capture">🖥 Screenshot</button>
           <button id="paste-image">📋 Paste</button>
-          <button id="record">🎤 Voice</button>
+          <button id="record">🎤 Audio attachment</button>
           <button id="media-upload">🎬 Video</button>
         </div>
         <p class="hint" id="record-status"></p>
@@ -204,10 +207,11 @@
     <button id="ed-crop" data-tool="crop">✂ Crop</button>
     <button id="crop-apply" hidden class="primary">Apply crop</button>
     <span class="sep"></span>
-    <button id="ed-more">⋯</button>
+    <button id="ed-more" aria-label="Picture details">⋯</button><button id="ed-zoom-out" aria-label="Zoom out">−</button><button id="ed-zoom-fit">Fit</button><button id="ed-zoom-in" aria-label="Zoom in">＋</button>
   </div>
   <div class="ed-body">
     <div class="ed-tools" id="tools">
+      <button data-tool="pan" title="Pan picture">✥<span>Pan</span></button>
       <button data-tool="select" title="Move">✋<span>Move</span></button>
       <button data-tool="box" title="Box">▭<span>Box</span></button>
       <button data-tool="circle" title="Circle">◯<span>Circle</span></button>
@@ -226,8 +230,8 @@
     <div class="widths" id="widths"><button data-w="3">S</button><button data-w="6">M</button><button data-w="10">L</button></div>
     <div id="stamp-palette" class="stamp-palette" hidden></div>
     <div id="selected-mark" class="sel-edit" hidden>
-      <label id="note-label">Note<input id="mark-note" placeholder="What should the operator notice?"></label>
-      <div class="row"><button data-scale="0.85">－</button><button data-scale="1.15">＋</button></div>
+      <label id="note-label" hidden>Note<input id="mark-note" placeholder="What should the operator notice?"></label><button id="edit-mark-note">Edit note / text</button><span id="mark-note-summary"></span>
+      <div class="row"><button data-nudge="left" aria-label="Nudge left">←</button><button data-nudge="right" aria-label="Nudge right">→</button><button data-nudge="up" aria-label="Nudge up">↑</button><button data-nudge="down" aria-label="Nudge down">↓</button><button data-scale="0.85" aria-label="Make mark smaller">－</button><button data-scale="1.15" aria-label="Make mark bigger">＋</button></div>
     </div>
     <div id="ed-extra" hidden class="ed-extra">
       <label>Caption<input id="photo-caption" placeholder="Explain this view"></label>
@@ -241,8 +245,8 @@
 <input type="file" id="photo-input" accept="image/*" multiple hidden>
 <input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
 <input type="file" id="media-input" accept="video/*,audio/*" multiple hidden>
-<input type="file" id="word-input" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
-<input type="file" id="backup-input" accept=".json,application/json" hidden>
+
+
 <input type="file" id="slot-input" accept="image/*" hidden>
 
 <dialog id="name-dialog"><form method="dialog"><h2 id="dialog-title">Section</h2><label id="dialog-label">Title<input id="chapter-name" required maxlength="160"></label><div class="row"><button value="cancel" formnovalidate>Cancel</button><button value="save" class="primary">Save</button></div></form></dialog>
@@ -255,7 +259,10 @@
   </div>
   <p class="hint">PDF opens your print dialog. Choose “Save as PDF”. A4 is the default; VA uses your page settings. Editable backups are available in the library.</p><div class="row"><button value="cancel">Close</button></div></form></dialog>
 <dialog id="page-setup-dialog"><form method="dialog"><h2>Visual aid page</h2><label>Paper size<select id="new-paper"><option>A4</option><option>A3</option><option>A5</option></select></label><label>Orientation<select id="new-orientation"><option value="portrait">Portrait (vertical)</option><option value="landscape">Landscape (horizontal)</option></select></label><div class="row"><button value="cancel">Cancel</button><button value="create" class="primary">Create visual aid</button></div></form></dialog>
-<dialog id="word-import-dialog"><form method="dialog"><h2>Import Word document</h2><p>Convert a .docx file into editable sections, pictures and tables.</p><label>Use this format<select id="import-type"><option value="wm">Works Manual</option><option value="twp">TWP — Temporary Work Procedure</option><option value="va">VA — Visual Aid</option></select></label><p class="hint">Original page styling is replaced by the selected template. Check the imported content before use. Older .doc files must be saved as .docx in Word first.</p><div class="row"><button value="cancel">Cancel</button><button value="choose" class="primary">Choose Word file</button></div></form></dialog>
+<dialog id="word-import-dialog"><form method="dialog"><h2>Open an existing Word manual</h2><p>Choose the format, then select the Word file to turn it into an editable draft.</p><label>Use this format<select id="import-type"><option value="wm">Works Manual</option><option value="twp">TWP — Temporary Work Procedure</option><option value="va">VA — Visual Aid</option></select></label><div id="import-va-setup" hidden><label>Paper size<select id="import-paper"><option>A4</option><option>A3</option><option>A5</option></select></label><label>Orientation<select id="import-orientation"><option value="portrait">Portrait (vertical)</option><option value="landscape">Landscape (horizontal)</option></select></label></div><label>Choose Word file (.docx)<input id="word-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label><p id="word-import-status" role="status" class="hint">Select a file, then tap Import manual.</p><p class="hint">The original stays unchanged. For an older .doc file, open it in Word and save as .docx first. For an editable app backup (.json), use Open saved draft.</p><div class="row"><button id="cancel-word-import" value="cancel">Cancel</button><button type="button" id="start-word-import" class="primary">Import manual</button></div></form></dialog>
+<dialog id="backup-dialog"><form method="dialog"><h2>Open a saved draft</h2><label>Choose Works Capture backup (.json)<input id="backup-input" type="file" accept=".json,application/json"></label><label class="check"><input id="restore-choices" type="checkbox"> Also restore areas and choices, if included</label><p class="hint">For a Word file, use Import Word instead.</p><p id="backup-import-status" role="status"></p><div class="row"><button value="cancel">Cancel</button><button type="button" id="start-backup-import" class="primary">Open draft</button></div></form></dialog>
+<dialog id="mark-text-dialog"><form method="dialog"><h2 id="mark-text-title">Edit note</h2><label>Text / note<textarea id="mark-text-value" rows="3" maxlength="2000"></textarea></label><div class="row dialog-actions"><button value="cancel">Cancel</button><button value="save" class="primary">Apply &amp; close keyboard</button></div></form></dialog>
+<dialog id="dictation-dialog"><form method="dialog"><h2>Voice to text</h2><label>Add text to<select id="dictation-target"><option value="action">Instruction</option><option value="result">Check / result</option><option value="support">Support information</option><option value="safety">Safety point</option><option value="quality">Quality requirement</option><option value="qualityChecks">Quality checks</option><option value="settings">Torque / setting</option><option value="exception">If it goes wrong</option><option value="variant">Variant</option></select></label><p class="hint">Your browser may send speech to its speech service. This uses no Works Capture AI credits. Review technical values before adding the text.</p><div class="row"><button type="button" id="dictation-start">Start listening</button><button type="button" id="dictation-stop" disabled>Stop</button><button type="button" id="dictation-keyboard">Use keyboard microphone</button></div><p id="dictation-status" role="status"></p><label>Transcript — edit after stopping<textarea id="dictation-text" rows="5" placeholder="Your words appear here. You can also use the microphone on your phone keyboard."></textarea></label><div class="row dialog-actions"><button value="cancel">Cancel</button><button type="button" id="dictation-insert" class="primary">Add text to step</button></div></form></dialog>
 <dialog id="import-report-dialog"><form method="dialog"><h2>Import ready for review</h2><p id="import-report"></p><p class="hint">The original Word file is unchanged. Check headings, tables, pictures, safety points and approvals before issuing this draft.</p><div class="row"><button value="ok" class="primary">Edit document</button></div></form></dialog>
 <dialog id="paste-table-dialog"><form method="dialog"><h2>Paste a table from Excel</h2><p>Copy cells in Excel, then paste below. The first row becomes the headings.</p><label>Copied cells<textarea id="paste-table-text" rows="9" placeholder="Paste copied cells here" required></textarea></label><p class="hint">Up to 8 columns and 100 data rows. Paste creates a new editable table; it does not replace another table. Formulas are imported as displayed text, not calculations.</p><div class="row"><button value="cancel" formnovalidate>Cancel</button><button value="insert" class="primary">Insert table</button></div></form></dialog>
 </body>

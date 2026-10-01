@@ -19,7 +19,7 @@ No AI service or business-account connection is required. Audio/video stays in t
 Update the application files together (including templates.js). Existing saved data is retained on the same origin. Remove obsolete example files when updating an older installation. docx.js is distributed with DOCX-LICENSE.
 
 ## Import existing Word files
-Use Library → Import Word, choose the output type, and choose a .docx file. Body text, headings, ordinary tables and supported embedded pictures are converted into editable capture sections. Recognised Scope, Overview, Safety, Quality and Risk Assessment headings populate the matching fields for WM/TWP. Other text remains in procedure sections. All three document types allow editable tables.
+Use Library → Import Word, choose the output type, select a .docx file in the visible file control, then tap Import manual. Body text, headings, ordinary tables and supported embedded pictures are converted into editable capture sections. Recognised Scope, Overview, Safety, Quality and Risk Assessment headings populate the matching fields for WM/TWP. Other text remains in procedure sections. All three document types allow editable tables.
 
 Conversion is a draft, not pixel-perfect Word editing. Review the import report: merged/nested tables are flattened, large tables split, source headers/footers/comments/footnotes omitted, tracked changes flattened, and vector images/charts/embedded objects may require manual replacement. No OCR is performed. Save old .doc or protected documents as an unprotected .docx in Word before import. The source document is unchanged.
 
@@ -36,3 +36,17 @@ The hosted application code may be public depending on your repository/Pages set
 For local use: run `python3 -m http.server 8000` inside the extracted folder and open http://localhost:8000. Camera, microphone, clipboard and screen capture depend on browser/device support and permission.
 
 Third-party library licences: DOCX-LICENSE and JSZIP-LICENSE.txt.
+
+## Mobile editor, voice-to-text and choices
+
+- **Picture editor:** Drawing or selecting a mark does not open the keyboard. Tap Edit note or Edit text when you want to type, then Apply & close keyboard. Zoom in/out and use Pan to move around the enlarged picture. Use Move for annotations, the arrow buttons for small adjustments, and Undo/Redo for corrections. Toolbars scroll horizontally on narrow phones.
+- **Voice to text:** In a step, tap Voice to text. Choose Instruction, Quality, Safety or another field; tap Start listening, speak, then Stop. Review the transcript and tap Add text to step. It appends to existing text. Audio attachment is separate and still stores a recording.
+- **Speech availability/privacy:** Browser speech recognition may send audio to the browser vendor's speech service and may need internet access. It uses no Works Capture AI API or tokens. Support and microphone permissions vary; use the keyboard microphone button to dictate through your phone's keyboard if web speech is unavailable. Verify all technical values and units.
+- **Older manuals:** Import Word is for .docx; Open saved draft is for Works Capture .json. Both dialogs now contain visible file selectors. A single restored JSON draft opens automatically. Older .doc files must first be saved as .docx in Word.
+- **Areas and codes:** Library → Settings & choices. Add a new area name and its code, or change a code already listed. Choose the area/code on a document's front page. Existing document numbers are not changed by editing settings.
+- **Bike and other choices:** In Settings, enter one choice per line for bike type, type, applicability version, mark, speed, variants, line/station and reason; then Save choices. You can also choose Add a choice in a document dropdown. Older values remain available on their documents.
+- **Moving settings to another device:** Back up all includes areas and choices. When opening that library backup, select Also restore areas and choices. These settings are local to your browser, not a company-wide catalogue.
+
+Refresh the existing GitHub Pages URL to load updates. Do not clear browser storage to update the application; it holds your saved manuals.
+
+Offline verification covers custom-area preservation, saved choices, dictation event handling, native import controls and Word export/import regression checks. Physical microphone recognition and virtual-keyboard behaviour still depend on the phone/browser and have not been tested on a physical iPhone/iPad.
